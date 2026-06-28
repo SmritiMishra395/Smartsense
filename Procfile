@@ -1,0 +1,1 @@
+web: python monitor/ml/generate_data.py && python monitor/ml/train_model.py && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn smartsense.wsgi --bind 0.0.0.0:$PORT --timeout 120

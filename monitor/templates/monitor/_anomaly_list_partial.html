@@ -1,0 +1,19 @@
+{% for a in recent_anomalies %}
+<div class="anomaly-item">
+  <a href="{% url 'anomaly_detail' a.id %}">
+    <div class="anomaly-top">
+      <div class="anomaly-type">{{ a.anomaly_type }}</div>
+      <span class="sev-badge sev-{{ a.severity }}">Sev {{ a.severity }}</span>
+    </div>
+    <div class="anomaly-meta">
+      <span class="mono">{{ a.timestamp|date:"H:i:s" }}</span>
+      <span>·</span>
+      <span>{% if a.diagnosis_pending %}Analyzing…{% else %}{{ a.urgency|default:"Unknown urgency" }}{% endif %}</span>
+    </div>
+  </a>
+</div>
+{% empty %}
+<div class="anomaly-empty">
+  No anomalies detected yet.<br><span style="font-size:0.75rem;">Monitoring sensors…</span>
+</div>
+{% endfor %}

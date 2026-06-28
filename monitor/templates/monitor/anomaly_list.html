@@ -1,0 +1,99 @@
+{% extends 'monitor/base.html' %}
+{% block title %}All Anomalies — SmartSense{% endblock %}
+
+{% block extra_head %}
+<style>
+  .table-wrap { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 0.7rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; text-align: left; padding: 14px 1.25rem; border-bottom: 1px solid var(--border); background: var(--bg-2); }
+  td { padding: 14px 1.25rem; font-size: 0.875rem; color: var(--text-1); border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover { background: var(--bg-2); cursor: pointer; }
+  .id-cell { font-family: 'JetBrains Mono', monospace; color: var(--text-3); font-size: 0.8125rem; }
+  .timestamp-cell { font-family: 'JetBrains Mono', monospace; color: var(--text-2); font-size: 0.8125rem; }
+  .type-cell { color: var(--text-0); font-weight: 500; }
+  .action-cell { color: var(--text-2); max-width: 300px; }
+
+  .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 1.5rem; }
+  .page-link {
+    padding: 8px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .page-link:hover { background: var(--bg-3); }
+  .page-link.current { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
+  .page-link.disabled { opacity: 0.4; pointer-events: none; }
+
+  .empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-3);
+  }
+  .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">All Anomalies</div>
+  <div class="page-subtitle">Complete log of detected anomalies and agent diagnoses</div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:60px;">#</th>
+        <th>Type</th>
+        <th>Severity</th>
+        <th>Detected</th>
+        <th>Urgency</th>
+        <th>Recommended Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in page %}
+      <tr onclick="window.location='{% url 'anomaly_detail' a.id %}'">
+        <td class="id-cell">#{{ a.id }}</td>
+        <td class="type-cell">{{ a.anomaly_type }}{% if a.is_recurring %} <span style="color:#c4b5fd; font-size:0.75rem;">↻</span>{% endif %}</td>
+        <td><span class="sev-badge sev-{{ a.severity }}">Sev {{ a.severity }}</span></td>
+        <td class="timestamp-cell">{{ a.timestamp|date:"M d · H:i:s" }}</td>
+        <td>{{ a.urgency|default:"—" }}</td>
+        <td class="action-cell">{{ a.recommended_action|default:"Pending diagnosis…"|truncatechars:90 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <div>No anomalies recorded yet</div>
+        </div>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page.has_other_pages %}
+<div class="pagination">
+  {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}" class="page-link">← Previous</a>
+  {% else %}
+    <span class="page-link disabled">← Previous</span>
+  {% endif %}
+
+  <span class="page-link current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+
+  {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}" class="page-link">Next →</a>
+  {% else %}
+    <span class="page-link disabled">Next →</span>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

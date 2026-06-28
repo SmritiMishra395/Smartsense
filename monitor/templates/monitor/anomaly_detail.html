@@ -1,0 +1,285 @@
+{% extends 'monitor/base.html' %}
+{% block title %}Anomaly #{{ anomaly.id }} — SmartSense{% endblock %}
+
+{% block extra_head %}
+<style>
+  .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); text-decoration: none; font-size: 0.875rem; margin-bottom: 1rem; transition: color 0.15s; }
+  .back-link:hover { color: var(--text-0); }
+
+  .anomaly-hero {
+    background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .hero-left { flex: 1; min-width: 300px; }
+  .hero-eyebrow {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .hero-title { font-size: 1.5rem; font-weight: 700; color: var(--text-0); margin-bottom: 8px; }
+  .hero-meta { font-size: 0.875rem; color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
+
+  .hero-sev {
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: var(--bg-2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .hero-sev-num { font-size: 2.5rem; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+  .hero-sev-label { font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; font-weight: 600; }
+  .hero-sev-1 .hero-sev-num, .hero-sev-2 .hero-sev-num { color: var(--green); }
+  .hero-sev-3 .hero-sev-num { color: var(--amber); }
+  .hero-sev-4 .hero-sev-num, .hero-sev-5 .hero-sev-num { color: var(--red); }
+
+  .pending-banner {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2.5rem;
+    text-align: center;
+    color: var(--text-2);
+  }
+  .spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--bg-3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 12px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .diagnosis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .diag-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .diag-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .diag-value {
+    font-size: 0.9375rem;
+    color: var(--text-0);
+    line-height: 1.55;
+  }
+  .diag-value.large {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .urgency-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .urgency-Immediate { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+  .urgency-Within { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+  .urgency-Monitor { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+
+  .full-row { grid-column: 1 / -1; }
+
+  .readings {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .reading {
+    flex: 1;
+    min-width: 140px;
+    background: var(--bg-2);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+  }
+  .reading-label { font-size: 0.7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 600; }
+  .reading-val { font-size: 1.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text-0); }
+  .reading-unit { font-size: 0.875rem; color: var(--text-3); font-weight: 400; margin-left: 2px; }
+  .reading-anomalous .reading-val { color: var(--red); }
+
+  .tech-info {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.8125rem;
+    color: var(--text-2);
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .tech-info span { color: var(--text-3); }
+  .tech-info b { color: var(--text-1); font-family: 'JetBrains Mono', monospace; font-weight: 600; margin-left: 6px; }
+
+  .recurring-flag {
+    display: inline-block;
+    background: rgba(167, 139, 250, 0.15);
+    color: #c4b5fd;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  .btn-resolve {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-resolve:hover { background: rgba(34, 197, 94, 0.25); }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'dashboard' %}" class="back-link">← Back to Dashboard</a>
+
+<div class="anomaly-hero">
+  <div class="hero-left">
+    <div class="hero-eyebrow">Anomaly Report</div>
+    <div class="hero-title">
+      {{ anomaly.anomaly_type }} #{{ anomaly.id }}
+      {% if anomaly.is_recurring %}<span class="recurring-flag">↻ Recurring</span>{% endif %}
+    </div>
+    <div class="hero-meta">Detected: {{ anomaly.timestamp|date:"Y-m-d · H:i:s" }} IST</div>
+  </div>
+  <div class="hero-sev hero-sev-{{ anomaly.severity }}">
+    <div class="hero-sev-num">{{ anomaly.severity }}</div>
+    <div class="hero-sev-label">{{ anomaly.full_diagnosis.severity_label|default:"Pending" }}</div>
+  </div>
+</div>
+
+{% if anomaly.diagnosis_pending %}
+<div class="pending-banner">
+  <div class="spinner"></div>
+  <span>Agent is analyzing this anomaly… refresh in a few seconds.</span>
+</div>
+{% else %}
+
+<div class="diagnosis-grid">
+  <div class="diag-card">
+    <div class="diag-label">Root Cause</div>
+    <div class="diag-value">{{ anomaly.root_cause|default:"No root cause identified" }}</div>
+  </div>
+
+  <div class="diag-card">
+    <div class="diag-label">Recommended Action</div>
+    <div class="diag-value">{{ anomaly.recommended_action|default:"No action recommended" }}</div>
+  </div>
+
+  <div class="diag-card">
+    <div class="diag-label">Urgency</div>
+    <div class="diag-value large">
+      <span class="urgency-pill urgency-{{ anomaly.urgency|slice:':9'|cut:' ' }}">
+        {{ anomaly.urgency|default:"Not specified" }}
+      </span>
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <div class="diag-label">Confidence</div>
+    <div class="diag-value large">{{ anomaly.confidence|default:"—" }}</div>
+  </div>
+
+  <div class="diag-card full-row">
+    <div class="diag-label">Agent Explanation</div>
+    <div class="diag-value">{{ anomaly.explanation|default:"No explanation provided" }}</div>
+  </div>
+
+  <div class="diag-card full-row">
+    <div class="diag-label">Sensor Readings at Detection</div>
+    <div class="readings">
+      <div class="reading {% if 'temperature' in anomaly.full_diagnosis.affected_sensors %}reading-anomalous{% endif %}">
+        <div class="reading-label">Temperature</div>
+        <div class="reading-val">{{ anomaly.reading.temperature|floatformat:1 }}<span class="reading-unit">°C</span></div>
+      </div>
+      <div class="reading {% if 'vibration' in anomaly.full_diagnosis.affected_sensors %}reading-anomalous{% endif %}">
+        <div class="reading-label">Vibration</div>
+        <div class="reading-val">{{ anomaly.reading.vibration|floatformat:2 }}<span class="reading-unit">mm/s</span></div>
+      </div>
+      <div class="reading {% if 'power' in anomaly.full_diagnosis.affected_sensors %}reading-anomalous{% endif %}">
+        <div class="reading-label">Power Draw</div>
+        <div class="reading-val">{{ anomaly.reading.power|floatformat:0 }}<span class="reading-unit">W</span></div>
+      </div>
+      <div class="reading">
+        <div class="reading-label">ML Score</div>
+        <div class="reading-val mono" style="font-size: 1.125rem;">{{ anomaly.reading.anomaly_score|floatformat:4 }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tech-info">
+  <div><span>Agent iterations:</span><b>{{ anomaly.agent_iterations }}</b></div>
+  <div><span>Reading ID:</span><b>#{{ anomaly.reading.id }}</b></div>
+  <div><span>Detection model:</span><b>Isolation Forest</b></div>
+  <div><span>Diagnosis model:</span><b>Gemini (Google)</b></div>
+  <div><span>Status:</span><b id="resolve-status">{% if anomaly.is_resolved %}✅ Resolved{% else %}⚠️ Open{% endif %}</b></div>
+</div>
+
+{% if not anomaly.is_resolved %}
+<div style="margin-top: 1.25rem; display: flex; gap: 10px;">
+  <button id="resolve-btn" onclick="resolveAnomaly({{ anomaly.id }})" class="btn btn-resolve">
+    ✓ Mark as Resolved
+  </button>
+</div>
+{% else %}
+<div style="margin-top: 1.25rem; padding: 12px 16px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; font-size: 0.875rem; color: #86efac;">
+  ✅ Resolved on {{ anomaly.resolved_at|date:"Y-m-d · H:i:s" }}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function resolveAnomaly(id) {
+  const btn = document.getElementById('resolve-btn');
+  btn.textContent = '⏳ Resolving...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/anomaly/${id}/resolve/`, {method: 'POST'});
+    if (res.ok) {
+      btn.textContent = '✅ Resolved';
+      btn.style.background = 'rgba(34, 197, 94, 0.25)';
+      document.getElementById('resolve-status').innerHTML = '✅ Resolved';
+    }
+  } catch(e) { btn.textContent = 'Error — try again'; btn.disabled = false; }
+}
+</script>
+{% endblock %}

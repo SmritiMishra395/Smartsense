@@ -1,0 +1,531 @@
+{% extends 'monitor/base.html' %}
+{% block title %}Dashboard — SmartSense{% endblock %}
+
+{% block extra_head %}
+<style>
+  .page-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
+
+  .test-panel {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .test-panel.show { display: flex; }
+  .test-btn {
+    padding: 6px 14px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .test-btn:hover { background: var(--bg-3); border-color: var(--accent); }
+  .test-btn-danger:hover { border-color: var(--red); }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.125rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .stat-val {
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stat-unit {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--text-3);
+    margin-left: 2px;
+  }
+  .stat-temp .stat-val { color: var(--orange); }
+  .stat-vib .stat-val { color: var(--accent-2); }
+  .stat-power .stat-val { color: var(--accent); }
+  .stat-anomaly .stat-val { color: var(--red); }
+  .stat-critical .stat-val { color: var(--red); }
+  .stat-reading .stat-val { color: var(--text-1); }
+
+  /* Two column layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .chart-card { padding: 1.5rem; }
+  .chart-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chart-toggles { display: flex; gap: 6px; }
+  .chart-toggle {
+    padding: 4px 10px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.7rem;
+    color: var(--text-2);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .chart-toggle.active { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
+  .chart-canvas-wrap { height: 280px; position: relative; }
+
+  /* Anomaly list */
+  .anomaly-card { padding: 0; overflow: hidden; }
+  .anomaly-header {
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .anomaly-count {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    background: var(--bg-2);
+    border-radius: 100px;
+    color: var(--text-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .anomaly-feed { max-height: 320px; overflow-y: auto; }
+  .anomaly-feed::-webkit-scrollbar { width: 6px; }
+  .anomaly-feed::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 100px; }
+  .anomaly-item {
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .anomaly-item:last-child { border-bottom: none; }
+  .anomaly-item:hover { background: var(--bg-2); }
+  .anomaly-item a { text-decoration: none; color: inherit; display: block; }
+  .anomaly-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .anomaly-type { font-size: 0.875rem; font-weight: 500; color: var(--text-0); }
+  .anomaly-meta {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .anomaly-empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 0.875rem;
+  }
+
+  /* Live alert banner */
+  .alert {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(56, 189, 248, 0.05) 100%);
+    border: 1px solid var(--accent-2);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideIn 0.3s ease-out;
+  }
+  .alert.show { display: flex; }
+  .alert-icon { font-size: 1.25rem; margin-right: 12px; }
+  .alert-text { font-size: 0.875rem; color: var(--text-0); flex: 1; }
+  .alert-text strong { color: var(--accent-2); }
+  .alert-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    background: var(--bg-2);
+    border-radius: 8px;
+    transition: background 0.15s;
+  }
+  .alert-link:hover { background: var(--bg-3); }
+  @keyframes slideIn {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Architecture diagram */
+  .arch-card { padding: 1.5rem; margin-top: 1rem; }
+  .arch-title { font-size: 0.875rem; font-weight: 600; color: var(--text-1); margin-bottom: 1rem; }
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .arch-node {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.8125rem;
+    text-align: center;
+    min-width: 140px;
+  }
+  .arch-node-label { font-size: 0.65rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .arch-node-name { font-weight: 600; color: var(--text-0); }
+  .arch-arrow { color: var(--text-3); font-size: 1.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Smart Home HVAC Monitor</div>
+    <div class="page-subtitle">Real-time anomaly detection · ML + Gemini AI diagnosis</div>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <a href="{% url 'export_csv' %}" class="btn">📥 Export CSV</a>
+    <div class="btn" onclick="document.getElementById('test-panel').classList.toggle('show')" style="cursor:pointer;">🧪 Test Trigger</div>
+  </div>
+</div>
+
+<!-- Test trigger panel (hidden by default) -->
+<div id="test-panel" class="test-panel">
+  <span style="font-size:0.8rem; color:var(--text-2); margin-right:8px;">Inject test anomaly:</span>
+  <button class="test-btn" onclick="triggerTest('temp')">🌡️ Temp Spike</button>
+  <button class="test-btn" onclick="triggerTest('vibration')">📳 Vibration Spike</button>
+  <button class="test-btn" onclick="triggerTest('power')">⚡ Power Drop</button>
+  <button class="test-btn test-btn-danger" onclick="triggerTest('multi')">💥 Multi-Sensor</button>
+</div>
+
+<!-- Anomaly alert banner (shown on detection) -->
+<div id="alert-banner" class="alert">
+  <div style="display:flex; align-items:center; flex:1;">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-text" id="alert-text">
+      <strong>Anomaly Detected.</strong> Agent is analyzing now…
+    </div>
+  </div>
+  <a id="alert-link" href="#" class="alert-link" style="display:none;">View Diagnosis →</a>
+</div>
+
+<!-- Stats grid -->
+<div class="stats">
+  <div class="stat stat-temp">
+    <div class="stat-label">Temperature</div>
+    <div class="stat-val"><span id="live-temp">--</span><span class="stat-unit">°C</span></div>
+  </div>
+  <div class="stat stat-vib">
+    <div class="stat-label">Vibration</div>
+    <div class="stat-val"><span id="live-vib">--</span><span class="stat-unit">mm/s</span></div>
+  </div>
+  <div class="stat stat-power">
+    <div class="stat-label">Power Draw</div>
+    <div class="stat-val"><span id="live-power">--</span><span class="stat-unit">W</span></div>
+  </div>
+  <div class="stat stat-anomaly">
+    <div class="stat-label">Total Anomalies</div>
+    <div class="stat-val" id="anomaly-count">{{ total_anomalies }}</div>
+  </div>
+  <div class="stat stat-critical">
+    <div class="stat-label">Critical (Sev 4-5)</div>
+    <div class="stat-val" id="critical-count">{{ critical_count }}</div>
+  </div>
+  <div class="stat stat-reading">
+    <div class="stat-label">Readings Processed</div>
+    <div class="stat-val" id="reading-count">{{ total_readings }}</div>
+  </div>
+</div>
+
+<!-- Two column: chart + anomaly list -->
+<div class="layout">
+  <div class="card chart-card">
+    <div class="chart-title">
+      <span>Live Sensor Feed</span>
+      <div class="chart-toggles">
+        <div class="chart-toggle active" data-sensor="temperature">Temperature</div>
+        <div class="chart-toggle" data-sensor="vibration">Vibration</div>
+        <div class="chart-toggle" data-sensor="power">Power</div>
+      </div>
+    </div>
+    <div class="chart-canvas-wrap">
+      <canvas id="sensorChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card anomaly-card">
+    <div class="anomaly-header">
+      <span>Recent Anomalies</span>
+      <span class="anomaly-count" id="anomaly-list-count">{{ recent_anomalies|length }}</span>
+    </div>
+    <div class="anomaly-feed" id="anomaly-feed">
+      {% include 'monitor/_anomaly_list_partial.html' %}
+    </div>
+  </div>
+</div>
+
+<!-- Architecture diagram -->
+<div class="card arch-card">
+  <div class="arch-title">System Architecture</div>
+  <div class="arch-flow">
+    <div class="arch-node">
+      <div class="arch-node-label">Step 1</div>
+      <div class="arch-node-name">Sensor Stream</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-label">Step 2 · ML</div>
+      <div class="arch-node-name">Isolation Forest</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-label">Step 3 · Agent</div>
+      <div class="arch-node-name">Gemini Agent</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-label">Step 4</div>
+      <div class="arch-node-name">Diagnosis Report</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ====== Chart Setup ======
+const ctx = document.getElementById('sensorChart').getContext('2d');
+let currentSensor = 'temperature';
+const sensorColors = {
+  temperature: '#f97316',
+  vibration: '#a78bfa',
+  power: '#38bdf8'
+};
+const sensorRanges = {
+  temperature: { min: 0, max: 60, label: '°C' },
+  vibration: { min: 0, max: 25, label: 'mm/s' },
+  power: { min: 0, max: 700, label: 'W' }
+};
+
+const sensorData = { temperature: [], vibration: [], power: [], labels: [], anomalies: [] };
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: sensorData.labels,
+    datasets: [{
+      label: 'Temperature',
+      data: sensorData.temperature,
+      borderColor: sensorColors.temperature,
+      backgroundColor: 'rgba(249, 115, 22, 0.1)',
+      tension: 0.35,
+      fill: true,
+      pointRadius: function(context) {
+        return sensorData.anomalies[context.dataIndex] ? 5 : 2;
+      },
+      pointBackgroundColor: function(context) {
+        return sensorData.anomalies[context.dataIndex] ? '#ef4444' : sensorColors.temperature;
+      },
+      pointBorderColor: function(context) {
+        return sensorData.anomalies[context.dataIndex] ? '#ef4444' : sensorColors.temperature;
+      },
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        borderColor: '#334155',
+        borderWidth: 1,
+        padding: 12,
+        titleColor: '#f1f5f9',
+        bodyColor: '#cbd5e1',
+        callbacks: {
+          label: function(context) {
+            const isAnom = sensorData.anomalies[context.dataIndex];
+            const unit = sensorRanges[currentSensor].label;
+            return `${context.parsed.y.toFixed(2)} ${unit}${isAnom ? ' ⚠ Anomaly' : ''}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: '#64748b', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: '#1f2937' } },
+      y: { ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: '#1f2937' } }
+    }
+  }
+});
+
+function switchSensor(sensor) {
+  currentSensor = sensor;
+  chart.data.datasets[0].label = sensor.charAt(0).toUpperCase() + sensor.slice(1);
+  chart.data.datasets[0].borderColor = sensorColors[sensor];
+  chart.data.datasets[0].backgroundColor = sensorColors[sensor] + '1a';
+  chart.data.datasets[0].data = sensorData[sensor];
+  chart.update('quiet');
+}
+
+document.querySelectorAll('.chart-toggle').forEach(toggle => {
+  toggle.addEventListener('click', () => {
+    document.querySelectorAll('.chart-toggle').forEach(t => t.classList.remove('active'));
+    toggle.classList.add('active');
+    switchSensor(toggle.dataset.sensor);
+  });
+});
+
+// ====== Live counters ======
+let anomalyCount = parseInt(document.getElementById('anomaly-count').textContent) || 0;
+let readingCount = parseInt(document.getElementById('reading-count').textContent) || 0;
+let criticalCount = parseInt(document.getElementById('critical-count').textContent) || 0;
+
+// ====== Anomaly alert ======
+function showAlert(features, anomalyLogId) {
+  const banner = document.getElementById('alert-banner');
+  const text = document.getElementById('alert-text');
+  const link = document.getElementById('alert-link');
+
+  text.innerHTML = `<strong>Anomaly Detected.</strong> ${features.join(', ') || 'Multi-sensor pattern'} · Agent is generating diagnosis…`;
+  if (anomalyLogId) {
+    link.href = `/anomaly/${anomalyLogId}/`;
+    link.style.display = 'inline-block';
+  } else {
+    link.style.display = 'none';
+  }
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 12000);
+}
+
+// ====== Fetch new reading ======
+async function fetchReading() {
+  try {
+    const res = await fetch('/simulate/');
+    if (!res.ok) {
+      console.error('Fetch failed:', res.status);
+      return;
+    }
+    const data = await res.json();
+    if (data.error) {
+      console.error('API error:', data.error);
+      return;
+    }
+
+    // Update live stats
+    document.getElementById('live-temp').textContent = data.temperature.toFixed(1);
+    document.getElementById('live-vib').textContent = data.vibration.toFixed(2);
+    document.getElementById('live-power').textContent = data.power.toFixed(0);
+
+    readingCount++;
+    document.getElementById('reading-count').textContent = readingCount;
+
+    // Update chart data
+    const time = new Date().toLocaleTimeString();
+    sensorData.labels.push(time);
+    sensorData.temperature.push(data.temperature);
+    sensorData.vibration.push(data.vibration);
+    sensorData.power.push(data.power);
+    sensorData.anomalies.push(data.is_anomaly);
+
+    if (sensorData.labels.length > 30) {
+      sensorData.labels.shift();
+      sensorData.temperature.shift();
+      sensorData.vibration.shift();
+      sensorData.power.shift();
+      sensorData.anomalies.shift();
+    }
+
+    chart.data.labels = sensorData.labels;
+    chart.data.datasets[0].data = sensorData[currentSensor];
+    chart.update('quiet');
+
+    // Handle anomaly
+    if (data.is_anomaly) {
+      anomalyCount++;
+      document.getElementById('anomaly-count').textContent = anomalyCount;
+      showAlert(data.anomaly_features, data.anomaly_log_id);
+
+      // Refresh anomaly list after a delay (let agent finish)
+      setTimeout(refreshAnomalyList, 1500);
+    }
+  } catch (e) {
+    console.error('Fetch error:', e);
+  }
+}
+
+async function refreshAnomalyList() {
+  try {
+    const res = await fetch('/anomalies/recent/');
+    if (!res.ok) return;
+    const html = await res.text();
+    document.getElementById('anomaly-feed').innerHTML = html;
+  } catch (e) {
+    console.error('Refresh error:', e);
+  }
+}
+
+// Kick off
+fetchReading();
+setInterval(fetchReading, 5000);
+
+// Test trigger
+async function triggerTest(type) {
+  const btn = event.target;
+  btn.textContent = '⏳ Triggering...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/test-trigger/?type=${type}`);
+    const data = await res.json();
+    if (data.is_anomaly && data.anomaly_log_id) {
+      showAlert([`Test ${type} anomaly injected`], data.anomaly_log_id);
+      anomalyCount++;
+      document.getElementById('anomaly-count').textContent = anomalyCount;
+      setTimeout(refreshAnomalyList, 1500);
+    }
+  } catch(e) { console.error('Trigger error:', e); }
+  setTimeout(() => { btn.textContent = btn.getAttribute('data-orig') || btn.textContent.replace('⏳ Triggering...', '✓ Done'); btn.disabled = false; }, 2000);
+}
+</script>
+{% endblock %}
